@@ -1,10 +1,75 @@
+import { createCacheClient } from "../../cache/index.js";
+let options = {}
+if (process.env.NODE_ENV === 'PROD') {
+    options = {
+        password: process.env.REDIS_PASS,
+        socket: {
+            host: process.env.REDIS_SERVER,
+            port: process.env.REDIS_PORT
+        }
+    }
+}
+if (process.env.NODE_ENV === 'DEV') {
+    options = {
+        url: process.env.REDIS_SERVER
+    }
+}
+
+// console.log(options)
+const cache = await createCacheClient(options);
+// console.log("connected");
+
+
+
+
+// import { createClient } from 'redis';
+
+
+// let redisConfig = {}
+// if (process.env.NODE_ENV = 'PROD') {
+//     redisConfig = {
+
+//         password: process.env.REDIS_PASS,
+//         socket: {
+//             host: process.env.REDIS_SERVER,
+//             port: process.env.REDIS_PORT
+//         }
+//     }
+// }
+// if (process.env.NODE_ENV = 'DEV') {
+//     redisConfig = {
+//         url: process.env.REDIS_SERVER
+//         // password: process.env.REDIS_PASS,
+//         // socket: {
+//         //     host: process.env.REDIS_SERVER,
+//         //     port: process.env.REDIS_PORT
+//         // }
+//     }
+// }
+// const client = createClient(redisConfig);
+
+// client.on('error', err => console.log('Redis Client Error', err));
+// await client.connect();
+
+// // await client.set('key', 'ahskdhaskdasldalsdlkad');
+// // const value = await client.get('key');
+
+// // console.log(value)
+// // await client.disconnect();
+
+
 
 export function MakeSearchBooksUseCase({ book_list, InvalidOperationError }) {
 
 
 
-
     return async function SearchBooks({ filters = [], pageNumber = 1, originalUrl }) {
+
+        // console.log(originalUrl)
+        let result = await cache.get(originalUrl)
+        if (result) return result;
+
+
         const itemsPerPage = 25;
         const baseUrl = `${process.env.SERVER_END_POINT}${originalUrl}`;
         let parsedUrl = new URL(baseUrl);
@@ -22,56 +87,20 @@ export function MakeSearchBooksUseCase({ book_list, InvalidOperationError }) {
         const prev = parsedUrl.toString();
 
         const { books } = await book_list.searchBooksAdvance({ filters, pageNumber, itemsPerPage });
-
-        return {
+        result = {
             bookCount: countResult.bookCount,
             books,
             currentPageNumber: pageNumber,
             prev,
             next
         }
+        await cache.set(originalUrl, result)
+
+        return result
     };
+}
 
-    function hasNextPage(perPage, totalCount, currentPage) {
-        const totalPages = Math.ceil(totalCount / perPage);
-        return currentPage < totalPages;
-    }
-
-
-    // return async function SearchBooks({ filters = [], pageNumber = 1, originalUrl }) {
-    //     const itemsPerPage = 25;
-    //     console.log(pageNumber, `${process.env.SERVER_END_POINT}${originalUrl}`)
-    //     let parsedUrl = new URL(`${process.env.SERVER_END_POINT}${originalUrl}`);
-
-    //     // Modify existing parameter
-    //     let countResult = await book_list.getBookCounts({ filters });
-    //     if (hasNextPage(itemsPerPage, countResult.bookCount, pageNumber))
-    //         parsedUrl.searchParams.set('pageNumber', pageNumber + 1);
-
-    //     // // Add new parameter
-    //     // parsedUrl.searchParams.append('param2', 'value2');
-    //     let next = parsedUrl.toString();
-    //     if (pageNumber > 1)
-    //         parsedUrl.searchParams.set('pageNumber', pageNumber - 1);
-    //     else {
-    //         parsedUrl.searchParams.set('pageNumber', pageNumber);
-    //     }
-    //     let prev = parsedUrl.toString()
-    //     console.log(parsedUrl.toString());
-    //     let { books } = await book_list.searchBooksAdvance({ filters, pageNumber, itemsPerPage });
-    //     return {
-    //         bookCount: countResult.bookCount,
-    //         books,
-    //         currentPageNumber: pageNumber,
-    //         prev,
-    //         next
-    //     }
-    // };
-
-    // // throw new InvalidOperationError('Common Collection not found');
-
-    // function hasNextPage(perPage, totalCount, currentPage) {
-    //     const totalPages = Math.ceil(totalCount / perPage);
-    //     return currentPage < totalPages;
-    // }
+function hasNextPage(perPage, totalCount, currentPage) {
+    const totalPages = Math.ceil(totalCount / perPage);
+    return currentPage < totalPages;
 }
