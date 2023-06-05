@@ -14,7 +14,6 @@ if (process.env.NODE_ENV === 'DEV') {
         url: process.env.REDIS_SERVER
     }
 }
-
 // console.log(options)
 const cache = await createCacheClient(options);
 // console.log("connected");
@@ -66,7 +65,10 @@ export function MakeSearchBooksUseCase({ book_list, InvalidOperationError }) {
     return async function SearchBooks({ filters = [], pageNumber = 1, originalUrl }) {
 
         // console.log(originalUrl)
-        let result = await cache.get(originalUrl)
+        let result;
+        const useCache = true;
+        if (useCache)
+            await cache.get(originalUrl)
         if (result) return result;
 
 
@@ -94,7 +96,8 @@ export function MakeSearchBooksUseCase({ book_list, InvalidOperationError }) {
             prev,
             next
         }
-        await cache.set(originalUrl, result)
+        if (useCache)
+            await cache.set(originalUrl, result)
 
         return result
     };
