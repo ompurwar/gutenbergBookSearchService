@@ -68,7 +68,7 @@ export function MakeSearchBooksUseCase({ book_list, InvalidOperationError }) {
         let result;
         const useCache = true;
         if (useCache)
-            await cache.get(originalUrl)
+            result = await cache.get(originalUrl)
         if (result) return result;
 
 
